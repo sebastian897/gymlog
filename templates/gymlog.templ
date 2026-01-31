@@ -1,5 +1,6 @@
 package templates
 
+import "gymlog/common"
 import "fmt"
 
 templ Page() {
@@ -22,14 +23,14 @@ templ Page() {
 
 templ Root() {
 	@Page() {
-		<h1>This is the ant game!!!!!!!!</h1>
-		<p>Get your grass <a href="/seb/gymlog/trade">here</a></p>
+		<h1>Gym</h1>
+		<p>Fitness Tracker <a href="/seb/gymlog/track">here</a></p>
 	}
 }
 
 templ Login(errmsg string) {
 	@Page() {
-		<h1>This is the ant game!!!!!!!!</h1>
+		<h1>Gym</h1>
 		<p>Login please.</p>
 		<form method="POST">
 			<div class="mb-3">
@@ -47,20 +48,55 @@ templ Login(errmsg string) {
 	}
 }
 
-templ Trade(username string, message string, quantity int) {
+templ Track(usr common.User, exercises []common.Exercise) {
 	@Page() {
-		<h1>Hello { username } </h1>
-		<p>Are you trading today?</p>
+		<h1>Tracker</h1>
+		<p>Hello { usr.Name }</p>
+		<p><a href="/seb/gymlog/home">Home</a></p>
 		<form method="POST">
 			<div class="mb-3">
-				<label class="form-label">Buy or Sell Grass Quantity</label>
-				<input class="form-control" type="text" name="quantityOfGrass"/>
+				<label class="form-label" for="excercise">Select Exercise</label>
+				<select name="exercise_id" class="form-select" id="excercise">
+					for _, ex := range exercises {
+						<option value={ fmt.Sprintf("%d", ex.Id) }>{ ex.Name }</option>
+					}
+				</select>
 			</div>
-			<button class="btn btn-primary" formaction="?action=buy_grass">Buy</button>
-			<button class="btn btn-primary" formaction="?action=sell_grass">Sell</button>
+			<div class="mb-3">
+				<label class="form-label" for="weight">Weight</label>
+				<input name="weight" type="number" class="form-control" id="weight"/>
+			</div>
+			<div class="mb-3">
+				<label class="form-label" for="reps">Reps</label>
+				<input name="reps" type="number" class="form-control" id="reps"/>
+			</div>
+						<div class="mb-3">
+				<label class="form-label" for="sets">Sets</label>
+				<input name="sets" type="number" class="form-control" id="sets"/>
+			</div>
+			<button class="btn btn-primary" formaction="?action=save">Log</button>
 		</form>
-		<h4>{ message }</h4>
-		<p>Total grass: { fmt.Sprintf("%d", quantity) }</p>
+		// <h4>{  }</h4>
+		// <p>Total grass: { fmt.Sprintf("%d", ) }</p>
+		// <p><a href="/seb/gymlog/login?action=logout">Logout</a></p>
+	}
+}
+
+templ Home(username string) {
+	@Page() {
+		<h1>Home</h1>
+		<p>Hello { username }</p>
+		<p><a href="/seb/gymlog/track">Fitness Tracker</a></p>
+		// <form method="POST">
+		// 	<div class="mb-3">
+		// 		<label class="form-label">Buy or Sell Grass Quantity</label>
+		// 		<input class="form-control" type="text" name="quantityOfGrass"/>
+		// 	</div>
+		// 	<button class="btn btn-primary" formaction="?action=buy_grass">Buy</button>
+		// 	<button class="btn btn-primary" formaction="?action=sell_grass">Sell</button>
+		// </form>
+		// <h4>{ message }</h4>
+		// <p>Total grass: { fmt.Sprintf("%d", quantity) }</p>
 		<p><a href="/seb/gymlog/login?action=logout">Logout</a></p>
 	}
 }

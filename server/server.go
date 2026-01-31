@@ -7,13 +7,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"gymlog/common"
+	"gymlog/templates"
 	"net/http"
 	"net/mail"
 	"os"
 	"strconv"
 	"time"
-
-	"gymlog/templates"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -52,7 +52,8 @@ func getResourceQuantity(user_id int, resource_id int) int {
 }
 
 const (
-	GRASS = 1
+	GRASS     = 1
+	serverUrl = "127.0.0.1:8080"
 )
 
 func buyGrass(user_id int, amt int) (string, int) {
@@ -77,13 +78,6 @@ func sellGrass(user_id int, amt int) (string, int) {
 	return "Sold: " + fmt.Sprint(amt), quantity - amt
 }
 
-func GetSession(r *http.Request) *sessions.Session {
-	session, err := store.Get(r, "gymlogTrading")
-	if err != nil {
-		panic(err)
-	}
-	return session
-}
 func Login(email string, password string, sess *sessions.Session) error {
 	var password_hash string
 	var id int
@@ -140,6 +134,29 @@ func validateName(name string) error {
 	return nil
 }
 
+func GetSession(r *http.Request) *sessions.Session {
+	session, err := store.Get(r, "gymlogTrading")
+	if err != nil {
+		panic(err)
+	}
+	return session
+}
+
+func GetLoggedInUser(w http.ResponseWriter, r *http.Request, session *sessions.Session) (common.User, error) {
+	if session.Values["loggedInUserId"] == nil {
+		http.Redirect(w, r, "/seb/gymlog/login", http.StatusFound)
+		return common.User{}, fmt.Errorf("Not Logged In, Redirect to login")
+	}
+	user_id := session.Values["loggedInUserId"].(int)
+	var usr common.User
+	err := db.QueryRowContext(dbctx, "SELECT id,name,password,email,admin FROM user WHERE id = ?", user_id).Scan(&usr.Id, &usr.Name, &usr.Password, &usr.Email, &usr.Admin)
+	if err != nil {
+		http.Redirect(w, r, "/seb/gymlog/login", http.StatusFound)
+		session.Values["loggedInUserId"] = nil
+		session.Save(r, w)
+	}
+	return usr, err
+}
 func handleRoot(w http.ResponseWriter, r *http.Request) {
 	component := templates.Root()
 	component.Render(context.Background(), w)
@@ -164,7 +181,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	if session.Values["loggedInUserId"] != nil {
-		http.Redirect(w, r, "/seb/gymlog/trade", http.StatusFound)
+		http.Redirect(w, r, "/seb/gymlog/track", http.StatusFound)
 		return
 	}
 	component := templates.Login(errmsg)
@@ -190,7 +207,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("session.save error = ", err)
 	}
 	if session.Values["loggedInUserId"] != nil {
-		http.Redirect(w, r, "/seb/gymlog/trade", http.StatusFound)
+		http.Redirect(w, r, "/seb/gymlog/track", http.StatusFound)
 		return
 	}
 	component := templates.Register(errmsg)
@@ -213,42 +230,70 @@ func buySellOperator(r *http.Request, user_id int, bsGrass func(int, int) (strin
 	return message, quantity
 }
 
-func handleTrade(w http.ResponseWriter, r *http.Request) {
+func handleTrack(w http.ResponseWriter, r *http.Request) {
 	session := GetSession(r)
-	var err error
-	if session.Values["loggedInUserId"] == nil {
-		http.Redirect(w, r, "/seb/gymlog/login", http.StatusFound)
-		return
-	}
-	user_id := session.Values["loggedInUserId"].(int)
-	var username string
-	err = db.QueryRowContext(dbctx, "SELECT name FROM user WHERE id = ?", user_id).Scan(&username)
+	usr, err := GetLoggedInUser(w, r, session)
 	if err != nil {
-		session.Values["loggedInUserId"] = nil
-		http.Redirect(w, r, "/seb/gymlog/login", http.StatusFound)
-		err = session.Save(r, w)
-		if err != nil {
-			fmt.Println("session.save error = ", err)
-		}
+		fmt.Printf("getLoggedInUser returned an error %s", err)
 		return
 	}
-	var message string
-	var quantity int
-	if r.URL.Query().Get("action") == "buy_grass" {
-		message, quantity = buySellOperator(r, user_id, buyGrass)
-	} else if r.URL.Query().Get("action") == "sell_grass" {
-		message, quantity = buySellOperator(r, user_id, sellGrass)
-	} else {
-		quantity = getResourceQuantity(user_id, GRASS)
+	// if r.URL.Query().Get("action") == "buy_grass" {
+	// 	message, quantity = buySellOperator(r, user_id, buyGrass)
+	// } else if r.URL.Query().Get("action") == "sell_grass" {
+	// 	message, quantity = buySellOperator(r, user_id, sellGrass)
+	// } else {
+	// 	quantity = getResourceQuantity(user_id, GRASS)
+	// }
+	if r.URL.Query().Get("action") == "save" {
+		var exLog common.ExerciseLog
+		exLog.ExerciseId, _ = strconv.Atoi(r.FormValue("exercise_id"))
+		exLog.Date = time.Now()
+		exLog.Weight, _ = strconv.ParseFloat(r.FormValue("weight"), 64)
+		exLog.Reps, _ = strconv.Atoi(r.FormValue("reps"))
+		exLog.Sets, _ = strconv.Atoi(r.FormValue("sets"))
+		_, err := db.ExecContext(dbctx, "insert into exercise_log(user_id,exercise_id,date,weight,reps,sets) values(?,?,?,?,?,?)", usr.Id, exLog.ExerciseId, exLog.Date, exLog.Weight, exLog.Reps, exLog.Sets)
+		if err != nil {
+			panic(err)
+		}
+		http.Redirect(w, r, "/seb/gymlog/track", http.StatusFound)
 	}
 	err = session.Save(r, w)
 	if err != nil {
 		fmt.Println("session.save error = ", err)
 	}
-	component := templates.Trade(username, message, quantity)
+	exercises, _ := getExercises()
+	component := templates.Track(usr, exercises)
 	component.Render(context.Background(), w)
 }
 
+func getExercises() ([]common.Exercise, error) {
+	rows, err := db.QueryContext(dbctx, "select id,name from exercise")
+	if err != nil {
+		panic(err)
+	}
+	exercises := make([]common.Exercise, 0)
+
+	defer rows.Close()
+	for rows.Next() {
+		var ex common.Exercise
+		if err := rows.Scan(&ex.Id, &ex.Name); err != nil {
+			panic(err)
+		}
+		exercises = append(exercises, ex)
+	}
+	return exercises, err
+}
+
+func handleHome(w http.ResponseWriter, r *http.Request) {
+	session := GetSession(r)
+	usr, err := GetLoggedInUser(w, r, session)
+	if err != nil {
+		return
+	}
+
+	component := templates.Home(usr.Name)
+	component.Render(context.Background(), w)
+}
 func main() {
 	var err error
 	fileStore := sessions.NewFilesystemStore("sess", []byte("MySecret"))
@@ -274,11 +319,13 @@ func main() {
 	db.SetMaxIdleConns(10)
 
 	http.HandleFunc("/seb/gymlog/", handleRoot)
-	http.HandleFunc("/seb/gymlog/trade", handleTrade)
+	http.HandleFunc("/seb/gymlog/track", handleTrack)
 	http.HandleFunc("/seb/gymlog/login", handleLogin)
 	http.HandleFunc("/seb/gymlog/register", handleRegister)
+	http.HandleFunc("/seb/gymlog/home", handleHome)
 
-	err = http.ListenAndServe("127.0.0.1:8080", nil)
+	fmt.Printf("Listening on %s\n", serverUrl)
+	err = http.ListenAndServe(serverUrl, nil)
 	if errors.Is(err, http.ErrServerClosed) {
 		fmt.Printf("server closed\n")
 	} else if err != nil {
