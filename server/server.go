@@ -38,46 +38,10 @@ func VerifyPassword(password, hash string) bool {
 	return err == nil
 }
 
-func getResourceQuantity(user_id int, resource_id int) int {
-	var quantity int = 0
-	err := db.QueryRowContext(dbctx, "SELECT quantity FROM inventory_item WHERE user_id = ? and resource_id = ?", user_id, resource_id).Scan(&quantity)
-	if err == sql.ErrNoRows {
-		_, err2 := db.ExecContext(dbctx, "insert into inventory_item(user_id,resource_id,quantity) values(?,?,?)", user_id, resource_id, quantity)
-		if err2 != nil {
-			panic(err2)
-		}
-	} else if err != nil {
-		panic(err)
-	}
-	return quantity
-}
-
 const (
 	GRASS     = 1
 	serverUrl = "127.0.0.1:8080"
 )
-
-func buyGrass(user_id int, amt int) (string, int) {
-	_, err := db.ExecContext(dbctx, "insert into inventory_item(user_id,resource_id,quantity) values(?,1,?)"+
-		" on duplicate key update quantity = quantity + ?", user_id, amt, amt)
-	if err != nil {
-		panic(err)
-	}
-	quantity := getResourceQuantity(user_id, GRASS)
-	return "Bought: " + fmt.Sprint(amt), quantity
-}
-
-func sellGrass(user_id int, amt int) (string, int) {
-	quantity := getResourceQuantity(user_id, GRASS)
-	if amt > quantity {
-		return "Failed to sell", quantity
-	}
-	_, err := db.ExecContext(dbctx, "update inventory_item set quantity = quantity - ? where user_id = ? and resource_id = 1", amt, user_id)
-	if err != nil {
-		panic(err)
-	}
-	return "Sold: " + fmt.Sprint(amt), quantity - amt
-}
 
 func Login(email string, password string, sess *sessions.Session) error {
 	var password_hash string
@@ -215,22 +179,6 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	component.Render(context.Background(), w)
 }
 
-func buySellOperator(r *http.Request, user_id int, bsGrass func(int, int) (string, int)) (string, int) {
-	var message string
-	var quantity int
-	q, err := strconv.Atoi(r.FormValue("quantityOfGrass"))
-	if q < 0 {
-		err = fmt.Errorf("negative quantity")
-	}
-	if err == nil {
-		message, quantity = bsGrass(user_id, q)
-	} else {
-		message = "Invalid quantity"
-		quantity = getResourceQuantity(user_id, GRASS)
-	}
-	return message, quantity
-}
-
 func handleTrack(w http.ResponseWriter, r *http.Request) {
 	session := GetSession(r)
 	usr, err := GetLoggedInUser(w, r, session)
@@ -238,13 +186,6 @@ func handleTrack(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("getLoggedInUser returned an error %s", err)
 		return
 	}
-	// if r.URL.Query().Get("action") == "buy_grass" {
-	// 	message, quantity = buySellOperator(r, user_id, buyGrass)
-	// } else if r.URL.Query().Get("action") == "sell_grass" {
-	// 	message, quantity = buySellOperator(r, user_id, sellGrass)
-	// } else {
-	// 	quantity = getResourceQuantity(user_id, GRASS)
-	// }
 	if r.URL.Query().Get("action") == "save" {
 		var exLog common.ExerciseLog
 		exLog.ExerciseId, _ = strconv.Atoi(r.FormValue("exercise_id"))
