@@ -77,6 +77,13 @@ func sellGrass(user_id int, amt int) (string, int) {
 	return "Sold: " + fmt.Sprint(amt), quantity - amt
 }
 
+func GetSession(r *http.Request) *sessions.Session {
+	session, err := store.Get(r, "gymlogTrading")
+	if err != nil {
+		panic(err)
+	}
+	return session
+}
 func Login(email string, password string, sess *sessions.Session) error {
 	var password_hash string
 	var id int
@@ -139,7 +146,7 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "gymlogTrading")
+	session := GetSession(r)
 	var err error
 	var errmsg string
 	if r.URL.Query().Get("action") == "login" {
@@ -165,7 +172,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRegister(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "gymlogTrading")
+	session := GetSession(r)
 	var err error
 	var errmsg string
 	if r.URL.Query().Get("action") == "register" {
@@ -207,13 +214,13 @@ func buySellOperator(r *http.Request, user_id int, bsGrass func(int, int) (strin
 }
 
 func handleTrade(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "gymlogTrading")
+	session := GetSession(r)
+	var err error
 	if session.Values["loggedInUserId"] == nil {
 		http.Redirect(w, r, "/seb/gymlog/login", http.StatusFound)
 		return
 	}
 	user_id := session.Values["loggedInUserId"].(int)
-	var err error
 	var username string
 	err = db.QueryRowContext(dbctx, "SELECT name FROM user WHERE id = ?", user_id).Scan(&username)
 	if err != nil {
@@ -257,6 +264,9 @@ func main() {
 
 	db, err = sql.Open("mysql", "gymlog:REDACTED@tcp(127.0.0.1:3306)/gymlog")
 	if err != nil {
+		panic(err)
+	}
+	if err = db.Ping(); err != nil {
 		panic(err)
 	}
 	db.SetConnMaxLifetime(time.Minute * 3)
