@@ -257,17 +257,13 @@ func handleTrack(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, "/seb/gymlog/track", http.StatusFound)
 	}
-	err = session.Save(r, w)
-	if err != nil {
-		fmt.Println("session.save error = ", err)
-	}
 	exercises, _ := getExercises()
 	component := templates.Track(usr, exercises)
 	component.Render(context.Background(), w)
 }
 
 func getExercises() ([]common.Exercise, error) {
-	rows, err := db.QueryContext(dbctx, "select id,name from exercise")
+	rows, err := db.QueryContext(dbctx, "select id,name from exercise order by name")
 	if err != nil {
 		panic(err)
 	}
@@ -291,9 +287,39 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	component := templates.Home(usr.Name)
+	component := templates.Home(usr)
 	component.Render(context.Background(), w)
 }
+
+func handleExercise(w http.ResponseWriter, r *http.Request) {
+	session := GetSession(r)
+	usr, err := GetLoggedInUser(w, r, session)
+	if err != nil {
+		return
+	}
+	if r.URL.Query().Get("action") == "save" {
+		var ex common.Exercise
+		ex.Name = r.FormValue("name")
+		_, err := db.ExecContext(dbctx, "insert into exercise(name) values(?)", ex.Name)
+		if err != nil {
+			panic(err)
+		}
+
+		http.Redirect(w, r, "/seb/gymlog/exercise", http.StatusFound)
+	} else if r.URL.Query().Get("action") == "delete" {
+		id, _ := strconv.Atoi(r.FormValue("exercise_id"))
+		_, err := db.ExecContext(dbctx, "delete from exercise where id = ?", id)
+		if err != nil {
+			panic(err)
+		}
+
+	}
+
+	exercises, _ := getExercises()
+	component := templates.Exercise(usr, exercises)
+	component.Render(context.Background(), w)
+}
+
 func main() {
 	var err error
 	fileStore := sessions.NewFilesystemStore("sess", []byte("MySecret"))
@@ -323,6 +349,7 @@ func main() {
 	http.HandleFunc("/seb/gymlog/login", handleLogin)
 	http.HandleFunc("/seb/gymlog/register", handleRegister)
 	http.HandleFunc("/seb/gymlog/home", handleHome)
+	http.HandleFunc("/seb/gymlog/exercise", handleExercise)
 
 	fmt.Printf("Listening on %s\n", serverUrl)
 	err = http.ListenAndServe(serverUrl, nil)

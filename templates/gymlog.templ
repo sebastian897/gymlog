@@ -82,21 +82,32 @@ templ Track(usr common.User, exercises []common.Exercise) {
 	}
 }
 
-templ Home(username string) {
+templ Exercise(usr common.User, exercises []common.Exercise) {
+	@Page() {
+		<h1>Exercises</h1>
+		<p>Hello { usr.Name }</p>
+		<p><a href="/seb/gymlog/home">Home</a></p>
+		<form method="POST">
+			<div class="mb-3">
+				<label class="form-label" for="name">Name</label>
+				<input name="name" type="text" class="form-control" id="name"/>
+			</div>
+			<button class="btn btn-primary" formaction="?action=save">Add</button>
+			for _, ex := range exercises {
+				<div>{ ex.Name } <a href={ "/seb/gymlog/exercise?action=delete&exercise_id=" + fmt.Sprintf("%d", ex.Id) }>Delete</a></div>
+			}
+		</form>
+	}
+}
+
+templ Home(usr common.User) {
 	@Page() {
 		<h1>Home</h1>
-		<p>Hello { username }</p>
+		<p>Hello { usr.Name }</p>
 		<p><a href="/seb/gymlog/track">Fitness Tracker</a></p>
-		// <form method="POST">
-		// 	<div class="mb-3">
-		// 		<label class="form-label">Buy or Sell Grass Quantity</label>
-		// 		<input class="form-control" type="text" name="quantityOfGrass"/>
-		// 	</div>
-		// 	<button class="btn btn-primary" formaction="?action=buy_grass">Buy</button>
-		// 	<button class="btn btn-primary" formaction="?action=sell_grass">Sell</button>
-		// </form>
-		// <h4>{ message }</h4>
-		// <p>Total grass: { fmt.Sprintf("%d", quantity) }</p>
+		if usr.Admin {
+			<p><a href="/seb/gymlog/exercise">Edit Exercises</a></p>
+		}
 		<p><a href="/seb/gymlog/login?action=logout">Logout</a></p>
 	}
 }
