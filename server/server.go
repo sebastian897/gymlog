@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
@@ -310,9 +311,12 @@ func handleExercise(w http.ResponseWriter, r *http.Request) {
 		id, _ := strconv.Atoi(r.FormValue("exercise_id"))
 		_, err := db.ExecContext(dbctx, "delete from exercise where id = ?", id)
 		if err != nil {
-			panic(err)
+			if merr, ok := err.(*mysql.MySQLError); ok && merr.Number == 1451 { // fk contraint
+				http.Redirect(w, r, "/seb/gymlog/exercise", http.StatusFound)
+			} else {
+				panic(err)
+			}
 		}
-
 	}
 
 	exercises, _ := getExercises()
