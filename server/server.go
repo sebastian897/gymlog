@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -39,8 +41,7 @@ func VerifyPassword(password, hash string) bool {
 }
 
 const (
-	GRASS     = 1
-	serverUrl = "127.0.0.1:8080"
+	GRASS = 1
 )
 
 func Login(email string, password string, sess *sessions.Session) error {
@@ -278,7 +279,12 @@ func main() {
 	}
 	store = fileStore // global interface
 
-	db, err = sql.Open("mysql", "gymlog:REDACTED@tcp(127.0.0.1:3306)/gymlog")
+	err = godotenv.Load()
+	if err != nil {
+		panic(err)
+	}
+
+	db, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", os.Getenv("DB_USER"), os.Getenv("DB_PASS"), os.Getenv("DB_HOST"), os.Getenv("DB_NAME")))
 	if err != nil {
 		panic(err)
 	}
@@ -296,6 +302,7 @@ func main() {
 	http.HandleFunc("/seb/gymlog/home", handleHome)
 	http.HandleFunc("/seb/gymlog/exercise", handleExercise)
 
+	serverUrl := os.Getenv("SERVER_URL")
 	fmt.Printf("Listening on %s\n", serverUrl)
 	err = http.ListenAndServe(serverUrl, nil)
 	if errors.Is(err, http.ErrServerClosed) {
