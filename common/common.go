@@ -26,3 +26,8 @@ type User struct {
 	Password string
 	Admin    bool
 }
+
+type RepsLog struct {
+	Date time.Time
+	Reps int
+}

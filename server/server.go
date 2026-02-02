@@ -223,6 +223,23 @@ func getExercises() ([]common.Exercise, error) {
 	return exercises, err
 }
 
+func getCompletedExercises(usr *common.User) ([]common.Exercise, error) {
+	rows, err := db.QueryContext(dbctx, "SELECT distinct e.id, e.name FROM exercise_log el, exercise e WHERE el.exercise_id = e.id and el.user_id = ? order by name", usr.Id)
+	if err != nil {
+		panic(err)
+	}
+	exercises := make([]common.Exercise, 0)
+	defer rows.Close()
+	for rows.Next() {
+		var ex common.Exercise
+		if err := rows.Scan(&ex.Id, &ex.Name); err != nil {
+			panic(err)
+		}
+		exercises = append(exercises, ex)
+	}
+	return exercises, err
+}
+
 func handleHome(w http.ResponseWriter, r *http.Request) {
 	session := GetSession(r)
 	usr, err := GetLoggedInUser(w, r, session)
@@ -230,7 +247,25 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	component := templates.Home(usr)
+	// var data common.RepsLog
+	// rows, err := db.QueryContext(dbctx, "SELECT exercise.name,date,weight,reps,sets FROM exercise_log,exercise WHERE exercise_log.exercise_id = exercise.id? and user_id = ?", user_id).Scan(&data.Name, &data.Date, &data.Weight, &data.Reps, &dataSets)
+
+	exs, err := getCompletedExercises(&usr)
+	if err != nil {
+		panic(err)
+	}
+
+	var exercise_id int
+	if len(exs) == 0 {
+		exercise_id = -1
+	} else {
+		exercise_id, err = strconv.Atoi(r.FormValue("exercise_id"))
+		if err != nil {
+			exercise_id = exs[0].Id
+		}
+	}
+
+	component := templates.Home(usr, exs, exercise_id)
 	component.Render(context.Background(), w)
 }
 
