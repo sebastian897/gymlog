@@ -223,7 +223,7 @@ func getExercises() ([]common.Exercise, error) {
 	return exercises, err
 }
 
-func getCompletedExercises(usr *common.User) ([]common.Exercise, error) {
+func getCompletedExercises(usr *common.User) []common.Exercise {
 	rows, err := db.QueryContext(dbctx, "SELECT distinct e.id, e.name FROM exercise_log el, exercise e WHERE el.exercise_id = e.id and el.user_id = ? order by name", usr.Id)
 	if err != nil {
 		panic(err)
@@ -237,7 +237,57 @@ func getCompletedExercises(usr *common.User) ([]common.Exercise, error) {
 		}
 		exercises = append(exercises, ex)
 	}
-	return exercises, err
+	return exercises
+}
+
+func getLoggedWeights(usr *common.User, exercise_id int) []int {
+	rows, err := db.QueryContext(dbctx, "SELECT distinct weight FROM exercise_log WHERE exercise_id = ? and user_id = ?", exercise_id, usr.Id)
+	if err != nil {
+		panic(err)
+	}
+
+	weights := make([]int, 0)
+	defer rows.Close()
+	for rows.Next() {
+		var w int
+		if err := rows.Scan(&w); err != nil {
+			panic(err)
+		}
+		weights = append(weights, w)
+	}
+	return weights
+}
+
+func getExerciseChart(usr common.User, exerise_id int, weight int) common.RepsLog {
+	rows, err := db.QueryContext(dbctx, "SELECT el.date,el.reps FROM exercise_log el WHERE el.weight = ? and el.exercise_id = ? and el.user_id = ? order by date", weight, exerise_id, usr.Id)
+	if err != nil {
+		panic(err)
+	}
+
+	var chart common.RepsLog
+	defer rows.Close()
+	for rows.Next() {
+		var date time.Time
+		var rep int
+		if err := rows.Scan(&date, &rep); err != nil {
+			panic(err)
+		}
+		chart.Reps = append(chart.Reps, rep)
+		chart.Dates = append(chart.Dates, date)
+	}
+	return chart
+}
+
+func getFormInt(formName string, defaultValue int, emptyArray bool, r *http.Request) int {
+	num := -1
+	var err error
+	if !emptyArray {
+		num, err = strconv.Atoi(r.FormValue(formName))
+		if err != nil {
+			num = defaultValue
+		}
+	}
+	return num
 }
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
@@ -247,25 +297,19 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// var data common.RepsLog
-	// rows, err := db.QueryContext(dbctx, "SELECT exercise.name,date,weight,reps,sets FROM exercise_log,exercise WHERE exercise_log.exercise_id = exercise.id? and user_id = ?", user_id).Scan(&data.Name, &data.Date, &data.Weight, &data.Reps, &dataSets)
+	exs := getCompletedExercises(&usr)
+	exercise_id := getFormInt("exercise_id", exs[0].Id, len(exs) == 0, r)
 
-	exs, err := getCompletedExercises(&usr)
-	if err != nil {
-		panic(err)
+	wts := getLoggedWeights(&usr, exercise_id)
+	weight := getFormInt("weight", wts[0], len(wts) == 0, r)
+
+	var chart common.RepsLog
+	if exercise_id > -1 && weight > -1 {
+		chart = getExerciseChart(usr, exercise_id, weight)
+
 	}
 
-	var exercise_id int
-	if len(exs) == 0 {
-		exercise_id = -1
-	} else {
-		exercise_id, err = strconv.Atoi(r.FormValue("exercise_id"))
-		if err != nil {
-			exercise_id = exs[0].Id
-		}
-	}
-
-	component := templates.Home(usr, exs, exercise_id)
+	component := templates.Home(usr, exs, exercise_id, wts, weight, chart)
 	component.Render(context.Background(), w)
 }
 
@@ -319,7 +363,11 @@ func main() {
 		panic(err)
 	}
 
-	db, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", os.Getenv("DB_USER"), os.Getenv("DB_PASS"), os.Getenv("DB_HOST"), os.Getenv("DB_NAME")))
+	db, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASS"),
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_NAME")))
 	if err != nil {
 		panic(err)
 	}

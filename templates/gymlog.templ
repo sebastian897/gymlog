@@ -11,6 +11,7 @@ templ Page() {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>The gymlog Game</title>
 			<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+			<script src="https://cdn.plot.ly/plotly-3.3.0.min.js" charset="utf-8"></script>
 		</head>
 		<body>
 			<div class="container">
@@ -101,11 +102,10 @@ templ Exercise(usr common.User, exercises []common.Exercise) {
 	}
 }
 
-templ Home(usr common.User, exercises []common.Exercise, exerciseId int) {
+templ Home(usr common.User, exercises []common.Exercise, exerciseId int, loggedWeights []int, weight int, chart common.RepsLog) {
 	@Page() {
 		<h1>Home</h1>
 		<p>Hello { usr.Name }</p>
-		if exerciseId > -1 {
 		<form method="post">
 			<div class="mb-3">
 				<label class="form-label" for="excercise">Select Exercise</label>
@@ -115,9 +115,31 @@ templ Home(usr common.User, exercises []common.Exercise, exerciseId int) {
 					}
 				</select>
 			</div>
-			<button class="btn btn-primary">Go</button>
+			<button class="btn btn-primary" formaction="?action=exercise">Go</button>
 		</form>
-		<script>exercises={{ exercises }}</script>
+		<form method="post">
+			<div class="mb-3">
+				<input type="hidden" name="exercise_id" value={ fmt.Sprintf("%d", exerciseId) }>
+				<label class="form-label" for="weight">Select Weight</label>
+				<select name="weight" class="form-select" id="weight">
+					for _, ex := range loggedWeights {
+						<option if weight == ex { selected } value={ fmt.Sprintf("%d", ex) }>{ ex }</option>
+					}
+				</select>
+			</div>
+			<button class="btn btn-primary" formaction="?action=exercise_weight">Go</button>
+		</form>
+		if exerciseId > -1 && weight > -1 {
+			<script>
+				document.addEventListener('DOMContentLoaded', () => {
+					TESTER = document.getElementById('tester');
+					Plotly.newPlot( TESTER, [{
+					x: {{ chart.Dates }},
+					y: {{ chart.Reps }}}], {
+					margin: { t: 0 } }, {responsive: true});
+				})
+			</script>
+			<div id="tester"></div>
 		}
 		<p><a href="/seb/gymlog/track">Fitness Tracker</a></p>
 		if usr.Admin {

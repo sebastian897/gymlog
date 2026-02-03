@@ -28,6 +28,6 @@ type User struct {
 }
 
 type RepsLog struct {
-	Date time.Time
-	Reps int
+	Dates []time.Time
+	Reps  []int
 }
