@@ -41,7 +41,8 @@ func VerifyPassword(password, hash string) bool {
 }
 
 const (
-	GRASS = 1
+	GRASS    = 1
+	NILVALUE = -1
 )
 
 func Login(email string, password string, sess *sessions.Session) error {
@@ -278,14 +279,10 @@ func getExerciseChart(usr common.User, exerise_id int, weight int) common.RepsLo
 	return chart
 }
 
-func getFormInt(formName string, defaultValue int, emptyArray bool, r *http.Request) int {
-	num := -1
-	var err error
-	if !emptyArray {
-		num, err = strconv.Atoi(r.FormValue(formName))
-		if err != nil {
-			num = defaultValue
-		}
+func getFormInt(formName string, defaultValue int, r *http.Request) int {
+	num, err := strconv.Atoi(r.FormValue(formName))
+	if err != nil {
+		num = defaultValue
 	}
 	return num
 }
@@ -297,11 +294,17 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var exercise_id = NILVALUE
 	exs := getCompletedExercises(&usr)
-	exercise_id := getFormInt("exercise_id", exs[0].Id, len(exs) == 0, r)
+	if len(exs) != 0 {
+		exercise_id = getFormInt("exercise_id", exs[0].Id, r)
+	}
 
+	var weight = NILVALUE
 	wts := getLoggedWeights(&usr, exercise_id)
-	weight := getFormInt("weight", wts[0], len(wts) == 0, r)
+	if len(exs) != 0 {
+		weight = getFormInt("weight", wts[0], r)
+	}
 
 	var chart common.RepsLog
 	if exercise_id > -1 && weight > -1 {
