@@ -109,25 +109,23 @@ templ Home(usr common.User, exercises []common.Exercise, exerciseId int, loggedW
 		<form method="post">
 			<div class="mb-3">
 				<label class="form-label" for="excercise">Select Exercise</label>
-				<select name="exercise_id" class="form-select" id="excercise">
+				<select name="exercise_id" class="form-select" id="excercise" onchange="this.form.submit()">
 					for _, ex := range exercises {
 						<option if exerciseId == ex.Id { selected } value={ fmt.Sprintf("%d", ex.Id) }>{ ex.Name }</option>
 					}
 				</select>
 			</div>
-			<button class="btn btn-primary" formaction="?action=exercise">Go</button>
 		</form>
 		<form method="post">
 			<div class="mb-3">
 				<input type="hidden" name="exercise_id" value={ fmt.Sprintf("%d", exerciseId) }>
 				<label class="form-label" for="weight">Select Weight</label>
-				<select name="weight" class="form-select" id="weight">
+				<select name="weight" class="form-select" id="weight" onchange="this.form.submit()">
 					for _, ex := range loggedWeights {
 						<option if weight == ex { selected } value={ fmt.Sprintf("%d", ex) }>{ ex }</option>
 					}
 				</select>
 			</div>
-			<button class="btn btn-primary" formaction="?action=exercise_weight">Go</button>
 		</form>
 		if exerciseId > -1 && weight > -1 {
 			<script>
