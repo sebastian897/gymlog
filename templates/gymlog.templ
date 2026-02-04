@@ -60,7 +60,7 @@ templ Track(usr common.User, exercises []common.Exercise) {
 				<label class="form-label" for="excercise">Select Exercise</label>
 				<select name="exercise_id" class="form-select" id="excercise">
 					for _, ex := range exercises {
-						<option value={ fmt.Sprintf("%d", ex.Id) }>{ ex.Name }</option>
+						<option value={ fmt.Sprintf("%d", ex.Id) }>{ fmt.Sprintf("%s (%d)", ex.Name, ex.Users) }</option>
 					}
 				</select>
 			</div>
@@ -72,7 +72,7 @@ templ Track(usr common.User, exercises []common.Exercise) {
 				<label class="form-label" for="reps">Reps</label>
 				<input name="reps" type="number" class="form-control" id="reps"/>
 			</div>
-						<div class="mb-3">
+			<div class="mb-3">
 				<label class="form-label" for="sets">Sets</label>
 				<input name="sets" type="number" class="form-control" id="sets"/>
 			</div>
@@ -112,7 +112,7 @@ templ Home(usr common.User, exercises []common.Exercise, exerciseId int, loggedW
 				<label class="form-label" for="excercise">Select Exercise</label>
 				<select name="exercise_id" class="form-select" id="excercise" onchange="this.form.submit()">
 					for _, ex := range exercises {
-						<option if exerciseId == ex.Id { selected } value={ fmt.Sprintf("%d", ex.Id) }>{ fmt.Sprintf("%s (%d)", ex.Name, ex.Users)  }</option>
+						<option if exerciseId == ex.Id { selected } value={ fmt.Sprintf("%d", ex.Id) }>{ ex.Name }</option>
 					}
 				</select>
 			</div>
@@ -142,7 +142,64 @@ templ Home(usr common.User, exercises []common.Exercise, exerciseId int, loggedW
 		}
 		<p><a href="/seb/gymlog/track">Fitness Tracker</a></p>
 		<p><a href="/seb/gymlog/exercise">Edit Exercises</a></p>
+		<p><a href="/seb/gymlog/logs">Edit Logs</a></p>
 		<p><a href="/seb/gymlog/login?action=logout">Logout</a></p>
+	}
+}
+
+templ Logs(usr common.User, exercises []common.Exercise, exerciseId int, loggedWeights []int, weight int, arrReps []int, reps int, arrDates []string, dates string) {
+	@Page() {
+		<h1>Home</h1>
+		<p>Hello { usr.Name }</p>
+		<p><a href="/seb/gymlog/home">Home</a></p>
+		<p>Delete logs here</p>
+		<form method="post">
+			<div class="mb-3">
+				<label class="form-label" for="excercise">Select Exercise</label>
+				<select name="exercise_id" class="form-select" id="excercise" onchange="this.form.submit()">
+					for _, ex := range exercises {
+						<option if exerciseId == ex.Id { selected } value={ fmt.Sprintf("%d", ex.Id) }>{ ex.Name }</option>
+					}
+				</select>
+			</div>
+		</form>
+		<form method="post">
+			<div class="mb-3">
+				<input type="hidden" name="exercise_id" value={ fmt.Sprintf("%d", exerciseId) }>
+				<label class="form-label" for="weight">Select Weight</label>
+				<select name="weight" class="form-select" id="weight" onchange="this.form.submit()">
+					for _, wt := range loggedWeights {
+						<option if weight == wt { selected } value={ fmt.Sprintf("%d", wt) }>{ wt }</option>
+					}
+				</select>
+			</div>
+		</form>
+		<form method="post">
+			<div class="mb-3">
+				<input type="hidden" name="exercise_id" value={ fmt.Sprintf("%d", exerciseId) }>
+				<input type="hidden" name="weight" value={ fmt.Sprintf("%d", weight) }>
+				<label class="form-label" for="reps">Select Reps</label>
+				<select name="reps" class="form-select" id="reps" onchange="this.form.submit()">
+					for _, rp := range arrReps {
+						<option if reps == rp { selected } value={ fmt.Sprintf("%d", rp) }>{ rp }</option>
+					}
+				</select>
+			</div>
+		</form>
+		<form method="post">
+			<div class="mb-3">
+				<input type="hidden" name="exercise_id" value={ fmt.Sprintf("%d", exerciseId) }>
+				<input type="hidden" name="weight" value={ fmt.Sprintf("%d", weight) }>
+				<input type="hidden" name="reps" value={ fmt.Sprintf("%d", reps) }>
+				<label class="form-label" for="date">Select Date</label>
+				<select name="date" class="form-select" id="date">
+					for _, dt := range arrDates {
+						<option if dates == dt { selected } value={ dt }>{ dt }</option>
+					}
+				</select>
+				<p><button class="btn btn-primary" formaction="?action=rmv_log">Delete</button></p>
+			</div>
+		</form>
 	}
 }
 

@@ -209,6 +209,7 @@ func handleTrack(w http.ResponseWriter, r *http.Request) {
 	component.Render(context.Background(), w)
 }
 
+// select distinct u.name from exercise_log el, user u, exercise e where el.user_id = u.id and e.id = el.exercise_id and e.name = "Carter Extention";
 func getExercises() ([]common.Exercise, error) {
 	rows, err := db.QueryContext(dbctx, "select id,name from exercise order by name")
 	if err != nil {
@@ -240,28 +241,45 @@ func getCompletedExercises(usr *common.User) []common.Exercise {
 		if err := rows.Scan(&ex.Id, &ex.Name); err != nil {
 			panic(err)
 		}
-		_ = db.QueryRowContext(dbctx, `SELECT COUNT(DISTINCT user_id) FROM exercise_log WHERE exercise_id = ?`, ex.Id).Scan(&ex.Users)
 		exercises = append(exercises, ex)
 	}
 	return exercises
 }
 
-func getLoggedWeights(usr *common.User, exercise_id int) []int {
-	rows, err := db.QueryContext(dbctx, "SELECT distinct weight FROM exercise_log WHERE exercise_id = ? and user_id = ? order by weight desc", exercise_id, usr.Id)
+func getArrIntsFromDB(rows *sql.Rows, err error) []int {
 	if err != nil {
 		panic(err)
 	}
 
-	weights := make([]int, 0)
+	arr := make([]int, 0)
 	defer rows.Close()
 	for rows.Next() {
-		var w int
-		if err := rows.Scan(&w); err != nil {
+		var sngl int
+		if err := rows.Scan(&sngl); err != nil {
 			panic(err)
 		}
-		weights = append(weights, w)
+		arr = append(arr, sngl)
 	}
-	return weights
+	return arr
+}
+
+func getArrStrFromDB(rows *sql.Rows, err error) []string {
+	layout := "2006-01-02"
+	if err != nil {
+		panic(err)
+	}
+
+	arr := make([]string, 0)
+	defer rows.Close()
+	for rows.Next() {
+		var sngl time.Time
+		if err := rows.Scan(&sngl); err != nil {
+			panic(err)
+		}
+		str := sngl.Format(layout)
+		arr = append(arr, str)
+	}
+	return arr
 }
 
 func getExerciseChart(usr common.User, exerise_id int, weight int) common.RepsLog {
@@ -292,6 +310,52 @@ func getFormInt(formName string, defaultValue int, r *http.Request) int {
 	return num
 }
 
+func handleLogs(w http.ResponseWriter, r *http.Request) {
+	session := GetSession(r)
+	usr, err := GetLoggedInUser(w, r, session)
+	if err != nil {
+		return
+	}
+
+	var exercise_id = NILVALUE
+	exs := getCompletedExercises(&usr)
+	if len(exs) != 0 {
+		exercise_id = getFormInt("exercise_id", exs[0].Id, r)
+	}
+
+	rows, err := db.QueryContext(dbctx, "SELECT distinct weight FROM exercise_log WHERE exercise_id = ? and user_id = ? order by weight desc", exercise_id, usr.Id)
+	var weight = NILVALUE
+	wts := getArrIntsFromDB(rows, err)
+	if len(wts) != 0 {
+		weight = getFormInt("weight", wts[0], r)
+	}
+
+	rows, err = db.QueryContext(dbctx, "SELECT distinct reps FROM exercise_log WHERE exercise_id = ? and weight = ? and user_id = ? order by reps desc", exercise_id, weight, usr.Id)
+	var reps = NILVALUE
+	arrReps := getArrIntsFromDB(rows, err)
+	if len(arrReps) != 0 {
+		reps = getFormInt("reps", arrReps[0], r)
+	}
+
+	rows, err = db.QueryContext(dbctx, "SELECT distinct date FROM exercise_log WHERE exercise_id = ? and weight = ? and reps = ? and user_id = ? order by date desc", exercise_id, weight, reps, usr.Id)
+	date := ""
+	arrDates := getArrStrFromDB(rows, err)
+	if len(arrDates) != 0 {
+		date = r.FormValue("date")
+	}
+	if r.URL.Query().Get("action") == "rmv_log" {
+		if exercise_id > -1 && weight > -1 && reps > -1 && date != "" {
+			_, err := db.ExecContext(dbctx, "delete from exercise_log where user_id = ? and exercise_id = ? and weight = ? and reps = ? and date = ?", usr.Id, exercise_id, weight, reps, date)
+			if err != nil {
+				panic(err)
+			}
+		}
+		http.Redirect(w, r, "/seb/gymlog/logs", http.StatusFound)
+	}
+	component := templates.Logs(usr, exs, exercise_id, wts, weight, arrReps, reps, arrDates, date)
+	component.Render(context.Background(), w)
+}
+
 func handleHome(w http.ResponseWriter, r *http.Request) {
 	session := GetSession(r)
 	usr, err := GetLoggedInUser(w, r, session)
@@ -306,7 +370,9 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var weight = NILVALUE
-	wts := getLoggedWeights(&usr, exercise_id)
+	rows, err := db.QueryContext(dbctx, "SELECT distinct weight FROM exercise_log WHERE exercise_id = ? and user_id = ? order by weight desc", exercise_id, usr.Id)
+
+	wts := getArrIntsFromDB(rows, err)
 	if len(exs) != 0 {
 		weight = getFormInt("weight", wts[0], r)
 	}
@@ -314,7 +380,6 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	var chart common.RepsLog
 	if exercise_id > -1 && weight > -1 {
 		chart = getExerciseChart(usr, exercise_id, weight)
-
 	}
 
 	component := templates.Home(usr, exs, exercise_id, wts, weight, chart)
@@ -392,6 +457,7 @@ func main() {
 	http.HandleFunc("/seb/gymlog/register", handleRegister)
 	http.HandleFunc("/seb/gymlog/home", handleHome)
 	http.HandleFunc("/seb/gymlog/exercise", handleExercise)
+	http.HandleFunc("/seb/gymlog/logs", handleLogs)
 
 	serverUrl := os.Getenv("SERVER_URL")
 	fmt.Printf("Listening on %s\n", serverUrl)
