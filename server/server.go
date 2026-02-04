@@ -195,11 +195,14 @@ func handleTrack(w http.ResponseWriter, r *http.Request) {
 		exLog.Weight, _ = strconv.ParseFloat(r.FormValue("weight"), 64)
 		exLog.Reps, _ = strconv.Atoi(r.FormValue("reps"))
 		exLog.Sets, _ = strconv.Atoi(r.FormValue("sets"))
-		_, err := db.ExecContext(dbctx, "insert into exercise_log(user_id,exercise_id,date,weight,reps,sets) values(?,?,?,?,?,?)", usr.Id, exLog.ExerciseId, exLog.Date, exLog.Weight, exLog.Reps, exLog.Sets)
-		if err != nil {
-			panic(err)
+		fmt.Printf("exLog.ExerciseId, exLog.Weight, exLog.Reps, exLog.Sets %d %f %d %d ", exLog.ExerciseId, exLog.Weight, exLog.Reps, exLog.Sets)
+		if exLog.ExerciseId > 0 && exLog.Weight > 0 && exLog.Reps > 0 && exLog.Sets > 0 {
+			_, err := db.ExecContext(dbctx, "insert into exercise_log(user_id,exercise_id,date,weight,reps,sets) values(?,?,?,?,?,?)", usr.Id, exLog.ExerciseId, exLog.Date, exLog.Weight, exLog.Reps, exLog.Sets)
+			if err != nil {
+				panic(err)
+			}
+			http.Redirect(w, r, "/seb/gymlog/track", http.StatusFound)
 		}
-		http.Redirect(w, r, "/seb/gymlog/track", http.StatusFound)
 	}
 	exercises, _ := getExercises()
 	component := templates.Track(usr, exercises)
@@ -219,6 +222,7 @@ func getExercises() ([]common.Exercise, error) {
 		if err := rows.Scan(&ex.Id, &ex.Name); err != nil {
 			panic(err)
 		}
+		_ = db.QueryRowContext(dbctx, `SELECT COUNT(DISTINCT user_id) FROM exercise_log WHERE exercise_id = ?`, ex.Id).Scan(&ex.Users)
 		exercises = append(exercises, ex)
 	}
 	return exercises, err
@@ -236,13 +240,14 @@ func getCompletedExercises(usr *common.User) []common.Exercise {
 		if err := rows.Scan(&ex.Id, &ex.Name); err != nil {
 			panic(err)
 		}
+		_ = db.QueryRowContext(dbctx, `SELECT COUNT(DISTINCT user_id) FROM exercise_log WHERE exercise_id = ?`, ex.Id).Scan(&ex.Users)
 		exercises = append(exercises, ex)
 	}
 	return exercises
 }
 
 func getLoggedWeights(usr *common.User, exercise_id int) []int {
-	rows, err := db.QueryContext(dbctx, "SELECT distinct weight FROM exercise_log WHERE exercise_id = ? and user_id = ?", exercise_id, usr.Id)
+	rows, err := db.QueryContext(dbctx, "SELECT distinct weight FROM exercise_log WHERE exercise_id = ? and user_id = ? order by weight desc", exercise_id, usr.Id)
 	if err != nil {
 		panic(err)
 	}

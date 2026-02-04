@@ -5,8 +5,9 @@ import (
 )
 
 type Exercise struct {
-	Id   int
-	Name string
+	Id    int
+	Name  string
+	Users int
 }
 
 type ExerciseLog struct {

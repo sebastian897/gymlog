@@ -9,7 +9,7 @@ templ Page() {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>The gymlog Game</title>
+			<title>Gymlog</title>
 			<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
 			<script src="https://cdn.plot.ly/plotly-3.3.0.min.js" charset="utf-8"></script>
 		</head>
@@ -26,7 +26,7 @@ templ Page() {
 templ Root() {
 	@Page() {
 		<h1>Gym</h1>
-		<p>Fitness Tracker <a href="/seb/gymlog/track">here</a></p>
+		<p>Fitness Tracker <a href="/seb/gymlog/home">here</a></p>
 	}
 }
 
@@ -45,7 +45,7 @@ templ Login(errmsg string) {
 			</div>
 			<button class="btn btn-primary" formaction="?action=login">Login</button>
 		</form>
-		<p>Register <a href="/seb/gymlog/register">here</a></p>
+		<p><a href="/seb/gymlog/register">Register</a></p>
 		<p style="color:red;">{ errmsg }</p>
 	}
 }
@@ -78,9 +78,6 @@ templ Track(usr common.User, exercises []common.Exercise) {
 			</div>
 			<button class="btn btn-primary" formaction="?action=save">Log</button>
 		</form>
-		// <h4>{  }</h4>
-		// <p>Total grass: { fmt.Sprintf("%d", ) }</p>
-		// <p><a href="/seb/gymlog/login?action=logout">Logout</a></p>
 	}
 }
 
@@ -96,7 +93,11 @@ templ Exercise(usr common.User, exercises []common.Exercise) {
 			</div>
 			<button class="btn btn-primary" formaction="?action=save">Add</button>
 			for _, ex := range exercises {
-				<div>{ ex.Name } <a href={ "/seb/gymlog/exercise?action=delete&exercise_id=" + fmt.Sprintf("%d", ex.Id) }>Delete</a></div>
+				<div>{ fmt.Sprintf("%s (%d)", ex.Name, ex.Users)  } 
+					if usr.Admin {
+					<a href={ "/seb/gymlog/exercise?action=delete&exercise_id=" + fmt.Sprintf("%d", ex.Id) }>Delete</a>
+				}
+				</div>
 			}
 		</form>
 	}
@@ -111,7 +112,7 @@ templ Home(usr common.User, exercises []common.Exercise, exerciseId int, loggedW
 				<label class="form-label" for="excercise">Select Exercise</label>
 				<select name="exercise_id" class="form-select" id="excercise" onchange="this.form.submit()">
 					for _, ex := range exercises {
-						<option if exerciseId == ex.Id { selected } value={ fmt.Sprintf("%d", ex.Id) }>{ ex.Name }</option>
+						<option if exerciseId == ex.Id { selected } value={ fmt.Sprintf("%d", ex.Id) }>{ fmt.Sprintf("%s (%d)", ex.Name, ex.Users)  }</option>
 					}
 				</select>
 			</div>
@@ -140,16 +141,14 @@ templ Home(usr common.User, exercises []common.Exercise, exerciseId int, loggedW
 			<div id="tester"></div>
 		}
 		<p><a href="/seb/gymlog/track">Fitness Tracker</a></p>
-		if usr.Admin {
-			<p><a href="/seb/gymlog/exercise">Edit Exercises</a></p>
-		}
+		<p><a href="/seb/gymlog/exercise">Edit Exercises</a></p>
 		<p><a href="/seb/gymlog/login?action=logout">Logout</a></p>
 	}
 }
 
 templ Register(errmsg string) {
 	@Page() {
-		<h1>This is the ant game!!!!!!!!</h1>
+		<h1>Gymlog</h1>
 		<p>Register please.</p>
 		<form method="post">
 			<div class="mb-3">
@@ -166,6 +165,7 @@ templ Register(errmsg string) {
 			</div>
 			<p><button class="btn btn-primary" formaction="?action=register">Register</button></p>
 		</form>
+		<p><a href="/seb/gymlog/login">Login</a></p>
 		<p class="text-danger">{ errmsg }</p>
 	}
 }
